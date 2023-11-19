@@ -103,7 +103,7 @@ export const DefaultHeaderConfig: HeaderConfig = {
 };
 
 export const DefaultRealmConfig: RealmAppConfig = {
-    appTitle: "OpenRemote Manager",
+    appTitle: "Onformant Manager",
     header: DefaultHeaderConfig
 };
 
