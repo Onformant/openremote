@@ -124,10 +124,10 @@ public class ManagerWebService extends WebService {
             .security(Collections.singletonList(new SecurityRequirement().addList("openid")));
 
         Info info = new Info()
-            .title("OpenRemote Manager REST API")
-            .description("This is the documentation for the OpenRemote Manager HTTP REST API.  Please see the [wiki](https://github.com/openremote/openremote/wiki) for more info.")
+            .title("Onformant Manager REST API")
+            .description("This is the documentation for the Onformant Manager HTTP REST API. ")
             .contact(new Contact()
-                .email("info@openremote.io"))
+                .email("craig@onformant.com"))
             .license(new License()
                 .name("AGPL 3.0")
                 .url("https://www.gnu.org/licenses/agpl-3.0.en.html"));
