@@ -24,17 +24,22 @@ class BleProvider(val context: Context) {
         private const val bleDisabledKey = "bleDisabled"
         private const val version = "ble"
 
+        // BLE UUIDs according to
+        // https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Assigned_Numbers/out/en/Assigned_Numbers.pdf?v=1706541022964
+
         private val SERVICE_GENERIC_ACCESS = UUID.fromString("00001800-0000-1000-8000-00805f9b34fb")
         private val SERVICE_GENERIC_ATTRIBUTE =
             UUID.fromString("00001801-0000-1000-8000-00805f9b34fb")
         private val CHARACTERISTIC_SERVICE_CHANGED =
-            UUID.fromString("00002a05-0000-1000-8000-00805f9b34fb");
+            UUID.fromString("00002a05-0000-1000-8000-00805f9b34fb")
         private val CHARACTERISTIC_DEVICE_NAME =
-            UUID.fromString("00002a00-0000-1000-8000-00805f9b34fb");
+            UUID.fromString("00002a00-0000-1000-8000-00805f9b34fb")
         private val CHARACTERISTIC_APPEARANCE =
-            UUID.fromString("00002a01-0000-1000-8000-00805f9b34fb");
+            UUID.fromString("00002a01-0000-1000-8000-00805f9b34fb")
         private val CHARACTERISTIC_CENTRAL_ADDRESS_RESOLUTION =
-            UUID.fromString("00002aa6-0000-1000-8000-00805f9b34fb");
+            UUID.fromString("00002aa6-0000-1000-8000-00805f9b34fb")
+        private val CHARACTERISTIC_DATABASE_HASH =
+            UUID.fromString("00002b2a-0000-1000-8000-00805f9b34fb")
 
         // This is the max MTU size supported by Android
         private const val GATT_MAX_MTU_SIZE = 517
@@ -180,6 +185,13 @@ class BleProvider(val context: Context) {
                                 "Successfully disconnected from $deviceAddress"
                             )
                             gatt.close()
+                            bleCallback.accept(
+                                hashMapOf(
+                                    "action" to "CONNECT_TO_DEVICE",
+                                    "provider" to "ble",
+                                    "success" to false,
+                                )
+                            )
                         }
                     } else {
                         bleCallback.accept(
@@ -218,7 +230,6 @@ class BleProvider(val context: Context) {
                                 }
 
                                 if (characteristic.isWritable()) {
-                                    gatt?.setCharacteristicNotification(characteristic, true)
                                     deviceCharacteristics.find { it.characteristic.uuid == characteristic.uuid }?.isWritable =
                                         true
                                 }
@@ -258,10 +269,9 @@ class BleProvider(val context: Context) {
                     value: ByteArray? = null
                 ) {
                     when (status) {
-                        BluetoothGatt.GATT_SUCCESS -> handleSuccess(
-                            gatt,
-                            readCharacteristic,
-                            value ?: readCharacteristic.value
+                        BluetoothGatt.GATT_SUCCESS -> Log.d(
+                            "BluetoothGattCallback",
+                            "Characteristic read success for ${readCharacteristic.uuid}"
                         )
 
                         BluetoothGatt.GATT_READ_NOT_PERMITTED -> Log.e(
@@ -274,24 +284,23 @@ class BleProvider(val context: Context) {
                             "Characteristic read failed for ${readCharacteristic.uuid}, error: $status"
                         )
                     }
-                }
-
-                private fun handleSuccess(
-                    gatt: BluetoothGatt?,
-                    readCharacteristic: BluetoothGattCharacteristic,
-                    value: ByteArray
-                ) {
                     val deviceCharacteristic =
                         deviceCharacteristics.find { it.characteristic.uuid == readCharacteristic.uuid }
-                    deviceCharacteristic?.also {
-                        it.value = String(value).substringBefore('\u0000')
+                    deviceCharacteristic?.also { attribute ->
+                        if (deviceCharacteristic.characteristic.uuid == CHARACTERISTIC_DATABASE_HASH) {
+                            attribute.value = value?.toHexString()
+                        } else {
+                            (value ?: readCharacteristic.value)?.let {
+                                attribute.value = String(it).substringBefore('\u0000')
+                            }
+                        }
                     }
                     Log.d(
                         "BluetoothGattCallback",
                         "Read characteristic ${readCharacteristic.uuid}:\n${
-                            String(
-                                value
-                            )
+                            value?.let {
+                                String(it)
+                            } ?: "null"
                         }"
                     )
                     handleDeviceIndex(gatt)
@@ -323,7 +332,6 @@ class BleProvider(val context: Context) {
                         "isWritable" to deviceCharacteristic.isWritable,
                         "value" to deviceCharacteristic.value
                     )
-
 
                 override fun onCharacteristicWrite(
                     gatt: BluetoothGatt?,
@@ -523,4 +531,8 @@ fun BluetoothGattCharacteristic.isWritableWithoutResponse(): Boolean =
 
 fun BluetoothGattCharacteristic.containsProperty(property: Int): Boolean {
     return properties and property != 0
+}
+
+fun ByteArray.toHexString(): String {
+    return joinToString("") { "%02x".format(it) }
 }
